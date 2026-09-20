@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="warp_orange">#F38020</color>
+    <color name="status_green">#2E9E5B</color>
+    <color name="status_amber">#D99A00</color>
+    <color name="status_gray">#8A8F98</color>
+</resources>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WARP Connect</string>
+    <string name="subtitle">Cloudflare WARP over WireGuard</string>
+
+    <string name="status_disconnected">Disconnected</string>
+    <string name="status_registering">Registering with Cloudflare…</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_connected">Connected</string>
+    <string name="status_disconnecting">Disconnecting…</string>
+
+    <string name="hint_disconnected">Tap the button to connect through WARP</string>
+    <string name="hint_registering">Creating your WARP identity (first run only)</string>
+    <string name="hint_connecting">Establishing the WireGuard tunnel</string>
+    <string name="hint_connected">Your traffic is routed through Cloudflare</string>
+    <string name="hint_disconnecting">Closing the tunnel</string>
+
+    <string name="btn_connect">CONNECT</string>
+    <string name="btn_disconnect">DISCONNECT</string>
+    <string name="btn_wait">PLEASE WAIT</string>
+
+    <string name="stats_sent">↑ Data sent</string>
+    <string name="stats_received">↓ Data received</string>
+    <string name="rate_format">%1$s/s</string>
+
+    <string name="info_registered">Device ID: %1$s\nEndpoint: %2$s</string>
+    <string name="info_not_registered">Not registered yet - happens automatically on first connect</string>
+    <string name="reset_registration">Reset WARP registration</string>
+    <string name="vpn_permission_denied">VPN permission is required to connect.</string>
+</resources>
