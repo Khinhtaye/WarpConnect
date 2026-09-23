@@ -24,44 +24,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val vm: MainViewModel by viewModels()
 
-    // Region / WireGuard Config Data Structure
-    data class ServerRegion(
-        val name: String,
-        val flag: String,
-        val address: String,
-        val privateKey: String,
-        val publicKey: String,
-        val endpoint: String,
-        val dns: String = "1.1.1.1"
-    )
-
+    // Region / Endpoint စာရင်းများ
+    private data class ServerRegion(val name: String, val flag: String, val endpoint: String)
     private val regions = listOf(
-        ServerRegion(
-            name = "Auto (Cloudflare WARP)",
-            flag = "🌐",
-            address = "172.16.0.2/32",
-            privateKey = "",
-            publicKey = "bmXOC+F1FxEMF9mTpd24F2I6ARKTXvoE9y8gb76v4U8=",
-            endpoint = "engage.cloudflareclient.com:2408"
-        ),
-        ServerRegion(
-            name = "Singapore",
-            flag = "🇸🇬",
-            address = "10.2.0.2/32",
-            privateKey = "SG_PRIVATE_KEY_HERE",
-            publicKey = "SG_PUBLIC_KEY_HERE",
-            endpoint = "162.159.192.1:2408"
-        ),
-        ServerRegion(
-            name = "Japan",
-            flag = "🇯🇵",
-            address = "10.3.0.2/32",
-            privateKey = "JP_PRIVATE_KEY_HERE",
-            publicKey = "JP_PUBLIC_KEY_HERE",
-            endpoint = "162.159.193.1:2408"
-        )
+        ServerRegion("Auto (Cloudflare)", "🌐", "engage.cloudflareclient.com:2408"),
+        ServerRegion("Singapore Clean IP", "🇸🇬", "162.159.192.1:2408"),
+        ServerRegion("Japan Clean IP", "🇯🇵", "162.159.193.1:2408"),
+        ServerRegion("Hong Kong Clean IP", "🇭🇰", "162.159.195.1:2408"),
+        ServerRegion("US Clean IP", "🇺🇸", "162.159.192.100:2408")
     )
-
     private var selectedRegion = regions[0]
 
     private val vpnPermission =
@@ -80,8 +51,8 @@ class MainActivity : AppCompatActivity() {
 
         binding.connectButton.setOnClickListener { onConnectClicked() }
         binding.resetButton.setOnClickListener { vm.resetRegistration() }
-        
-        // Status Hint စာတန်းကို နှိပ်လျှင် Region ရွေးခွင့်ပေးခြင်း
+
+        // Status Hint စာတန်းကို နှိပ်လိုက်ပါက Region ရွေးချယ်နိုင်သော Popup ပွင့်လာစေခြင်း
         binding.statusHint.setOnClickListener { showRegionDialog() }
 
         lifecycleScope.launch {
@@ -99,19 +70,12 @@ class MainActivity : AppCompatActivity() {
 
         val regionNames = regions.map { "${it.flag} ${it.name}" }.toTypedArray()
         AlertDialog.Builder(this)
-            .setTitle("Select VPN Region")
+            .setTitle("Select Region Endpoint")
             .setItems(regionNames) { _, which ->
                 selectedRegion = regions[which]
                 Toast.makeText(this, "Selected: ${selectedRegion.name}", Toast.LENGTH_SHORT).show()
-                
-                // ViewModel သို့ Config သစ် ပေးပို့ခြင်း
-                vm.updateConfiguration(
-                    address = selectedRegion.address,
-                    privateKey = selectedRegion.privateKey,
-                    publicKey = selectedRegion.publicKey,
-                    endpoint = selectedRegion.endpoint,
-                    dns = selectedRegion.dns
-                )
+                // ViewModel သို့ Endpoint အသစ် ပေးပို့ပေးခြင်း
+                vm.updateEndpoint(selectedRegion.endpoint)
             }
             .show()
     }
@@ -164,7 +128,7 @@ class MainActivity : AppCompatActivity() {
             s.state == ConnState.DISCONNECTING
 
         binding.statusText.setText(style.status)
-        
+
         binding.statusHint.text = if (s.state == ConnState.DISCONNECTED) {
             "Tap here to change region: ${selectedRegion.flag} ${selectedRegion.name}"
         } else {
@@ -191,7 +155,7 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.rate_format, Formatter.formatShortFileSize(this, s.downRate))
 
         binding.infoText.text = if (s.deviceId != null) {
-            getString(R.string.info_registered, s.deviceId, selectedRegion.endpoint)
+            getString(R.string.info_registered, s.deviceId, s.endpoint ?: selectedRegion.endpoint)
         } else {
             getString(R.string.info_not_registered)
         }
