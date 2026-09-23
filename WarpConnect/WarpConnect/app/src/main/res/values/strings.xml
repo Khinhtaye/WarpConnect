@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">WARP Connect</string>
-    <string name="subtitle">Cloudflare WARP over WireGuard</string>
+    <string name="app_name">A&Z Connect</string>
+    <string name="subtitle">High Speed &amp; Secure VPN</string>
 
     <string name="status_disconnected">Disconnected</string>
     <string name="status_registering">Registering with Cloudflare…</string>
