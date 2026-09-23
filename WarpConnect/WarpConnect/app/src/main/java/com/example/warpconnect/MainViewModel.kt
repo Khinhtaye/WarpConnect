@@ -50,7 +50,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         )
         if (up) startPolling()
 
-        // Tunnel dropped from outside (VPN revoked by another app / system).
         viewModelScope.launch {
             WarpTunnelManager.isUp.collect { isUp ->
                 if (!isUp && _ui.value.state == ConnState.CONNECTED) {
@@ -110,11 +109,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Forget the stored identity; a fresh one is registered on the next connect. */
     fun resetRegistration() {
         if (_ui.value.state != ConnState.DISCONNECTED) return
         store.clear()
         _ui.update { it.copy(deviceId = null, endpoint = null, error = null) }
+    }
+
+    /** Selected Region ၏ Endpoint IP ကို Account ထဲတွင် အစားထိုးပေးခြင်း */
+    fun updateEndpoint(newEndpoint: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentAccount = store.load()
+            if (currentAccount != null) {
+                val updatedAccount = currentAccount.copy(endpoint = newEndpoint)
+                store.save(updatedAccount)
+                _ui.update { it.copy(endpoint = newEndpoint) }
+            }
+        }
     }
 
     private suspend fun registerNew(): WarpAccount {
