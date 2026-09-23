@@ -5,33 +5,22 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 /**
- * Minimal client for Cloudflare's (unofficial, undocumented) WARP registration API,
- * the same one used by the 1.1.1.1 app and by tools like wgcf.
- *
- * Flow: generate a Curve25519 key pair locally -> POST the public key to /reg ->
- * Cloudflare answers with our tunnel addresses, its public key and the endpoint.
- * The private key never leaves the device.
+ * Minimal client for Cloudflare's WARP registration API.
  */
 object WarpApi {
     private const val BASE_URL = "https://api.cloudflareclient.com"
     private const val DEFAULT_PORT = 2408
 
-    /**
-     * (API path version, matching CF-Client-Version header). They are tried in order;
-     * if Cloudflare retires one, add a newer pair at the top of this list.
-     */
     private val API_VERSIONS = listOf(
         "v0a2158" to "a-6.3-2158",
-        "v0a1922" to "a-6.3-1922",
+        "v0a1922" to "a-6.3-1922"
     )
 
     private const val USER_AGENT = "okhttp/3.12.1"
@@ -50,7 +39,7 @@ object WarpApi {
             put("key", keyPair.publicKey.toBase64())
             put("install_id", "")
             put("fcm_token", "")
-            put("tos", isoNow())
+            put("tos", Instant.now().toString()) // Replaced SimpleDateFormat
             put("type", "Android")
             put("model", "PC")
             put("locale", "en_US")
@@ -61,7 +50,7 @@ object WarpApi {
             try {
                 val response = post(version, clientVersion, body)
                 val account = parse(response, keyPair)
-                // Best effort: make sure WARP is switched on for this device.
+                // Best effort: enable WARP on the created registration
                 runCatching { enableWarp(version, clientVersion, account) }
                 return account
             } catch (e: Exception) {
@@ -78,6 +67,7 @@ object WarpApi {
             .header("CF-Client-Version", clientVersion)
             .post(body.toRequestBody(JSON_TYPE))
             .build()
+
         return client.newCall(request).execute().use { response ->
             val text = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
@@ -101,10 +91,34 @@ object WarpApi {
     private fun parse(json: JSONObject, keyPair: KeyPair): WarpAccount {
         val config = json.getJSONObject("config")
         val peer = config.getJSONArray("peers").getJSONObject(0)
-        val addresses = config.getJSONObject("interface").getJSONObject("addresses")
+        val interfaceObj = config.getJSONObject("interface")
 
-        var endpoint = peer.getJSONObject("endpoint").getString("host")
-        if (!endpoint.contains(":")) endpoint = "$endpoint:$DEFAULT_PORT"
+        // 1. Safe parsing for endpoint (Handles host or host:port)
+        val endpointObj = peer.getJSONObject("endpoint")
+        val host = endpointObj.optString("v4").ifEmpty { 
+            endpointObj.optString("v6").ifEmpty { 
+                endpointObj.optString("host") 
+            } 
+        }
+        val endpoint = if (host.contains(":")) host else "$host:$DEFAULT_PORT"
+
+        // 2. Safe parsing for addresses (Handles both JSON Object and JSON Array structures)
+        var v4: String? = null
+        var v6: String? = null
+
+        val addressesObj = interfaceObj.optJSONObject("addresses")
+        if (addressesObj != null) {
+            v4 = addressesObj.optString("v4").takeIf { it.isNotBlank() }
+            v6 = addressesObj.optString("v6").takeIf { it.isNotBlank() }
+        } else {
+            val addressesArray = interfaceObj.optJSONArray("addresses") ?: JSONArray()
+            for (i in 0 until addressesArray.length()) {
+                val addrObj = addressesArray.optJSONObject(i) ?: continue
+                val addrStr = addrObj.optString("address", "")
+                if (addrStr.contains(".")) v4 = addrStr
+                else if (addrStr.contains(":")) v6 = addrStr
+            }
+        }
 
         return WarpAccount(
             deviceId = json.getString("id"),
@@ -113,13 +127,8 @@ object WarpApi {
             publicKey = keyPair.publicKey.toBase64(),
             peerPublicKey = peer.getString("public_key"),
             endpoint = endpoint,
-            addressV4 = addresses.getString("v4").substringBefore('/'),
-            addressV6 = addresses.optString("v6").takeIf { it.isNotBlank() }?.substringBefore('/'),
+            addressV4 = v4?.substringBefore('/') ?: throw IOException("Missing IPv4 address"),
+            addressV6 = v6?.substringBefore('/')
         )
     }
-
-    private fun isoNow(): String =
-        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
-            .apply { timeZone = TimeZone.getTimeZone("UTC") }
-            .format(Date())
 }
